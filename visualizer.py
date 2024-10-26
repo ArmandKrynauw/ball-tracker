@@ -4,7 +4,9 @@ from pathlib import Path
 
 import cv2
 import matplotlib.pyplot as plt
+import matplotlib
 
+matplotlib.use('TkAgg')
 
 class YOLOVisualizer:
     def __init__(self, images_dir, labels_dir):

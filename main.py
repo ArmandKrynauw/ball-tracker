@@ -30,7 +30,7 @@ if not (DATA_DIR / "images").exists():
 
 copy_roboflow_data(DATA_DIR / "images")
 
-data_path = create_yolo_data_file(["puck"])
+data_path = create_yolo_data_file(["puck"]) 
 
 # Determine the device to use
 device = torch.device(
@@ -43,23 +43,26 @@ device = torch.device(
 
 model = YOLO(DATA_DIR / "yolo11n.pt")
 
-detect =  cwd = Path(os.getcwd()) / "runs/detect"
+detect  = Path(os.getcwd()) / "runs/detect"
 
 
 results = model.train(
     data=data_path,
-    epochs=1,
+    epochs=30,
     batch=4,
-    imgsz=512,
+    imgsz=640,
     device=device,
     # fraction=0.3,
     cache=True,
     project=detect,
     name="run",
+    max_det=1,
+    translate=0.3,
+    optimizer="RAdam",
 )
 
 
-#Grab save dir from dictionary
+# Grab save dir from dictionary
 best_weights_path = results.save_dir / 'weights/best.pt'
 last_weights_path = results.save_dir / 'weights/last.pt'   
 
@@ -76,6 +79,7 @@ results = model.val(
     project=results.save_dir,
     name="test",
     split='test', # Use the test images in yaml
+    max_det=1,
 )
 
 print('Testing completed.') 

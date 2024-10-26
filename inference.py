@@ -6,6 +6,8 @@ import cv2
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from ultralytics import YOLO
+from pathlib import Path
+import torch
 
 from utils import DATA_DIR, TEST_IMAGES_DIR, TRAIN_IMAGES_DIR
 
@@ -30,7 +32,7 @@ class PredictionVisualizer:
 
     def get_prediction(self, image_path):
         if image_path not in self.predictions:
-            results = self.model.predict(image_path, conf=0.1)
+            results = self.model.predict(image_path, conf=0.1,max_det=1)
             self.predictions[image_path] = results[0]
         return self.predictions[image_path]
 
@@ -52,7 +54,11 @@ class PredictionVisualizer:
 
         for box in boxes:
             # Get box coordinates
-            x1, y1, x2, y2 = box.xyxy[0]
+            
+            if torch.cuda.is_available():
+                x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
+            else:
+                x1, y1, x2, y2 = box.xyxy[0]
 
             # Plot rectangle
             rect = Rectangle(
@@ -111,7 +117,7 @@ class PredictionVisualizer:
 
 
 def main():
-    model_path = DATA_DIR / "francois" / "best.pt"
+    model_path = Path(os.getcwd()) / "runs/detect/run2/weights/best.pt"
     images_dir = TRAIN_IMAGES_DIR
 
     PredictionVisualizer(model_path, images_dir)
