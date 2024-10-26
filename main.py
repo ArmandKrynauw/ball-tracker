@@ -3,6 +3,11 @@ import shutil
 
 import torch
 from ultralytics import YOLO
+from tqdm.notebook import tqdm
+import pandas as pd
+import os
+from pathlib import Path
+
 
 from utils import (
     DATA_DIR,
@@ -38,12 +43,39 @@ device = torch.device(
 
 model = YOLO(DATA_DIR / "yolo11n.pt")
 
+detect =  cwd = Path(os.getcwd()) / "runs/detect"
+
+
 results = model.train(
     data=data_path,
-    epochs=30,
-    batch=64,
-    imgsz=640,
+    epochs=1,
+    batch=4,
+    imgsz=512,
     device=device,
     # fraction=0.3,
     cache=True,
+    project=detect,
+    name="run",
 )
+
+
+#Grab save dir from dictionary
+best_weights_path = results.save_dir / 'weights/best.pt'
+last_weights_path = results.save_dir / 'weights/last.pt'   
+
+
+# Load model for validation
+model = YOLO(best_weights_path)
+
+
+print('\nPerforming testing...\n')
+
+
+results = model.val(
+    data=data_path,
+    project=results.save_dir,
+    name="test",
+    split='test', # Use the test images in yaml
+)
+
+print('Testing completed.') 

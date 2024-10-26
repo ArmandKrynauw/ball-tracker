@@ -3,6 +3,10 @@
 data
 local
 *.zip
+runs
+
+# Yolo models
+yolo*
 
 # ---- macOS ----
 # General
