@@ -1,12 +1,21 @@
 # ---- Misc ----
 
-data
 local
 *.zip
 runs
 
 # Yolo models
 yolo*
+
+data/dataset
+data/final-test
+data/francois
+data/images
+data/predict
+data/track*
+data/*.yaml
+data/*.pt
+data/field_hockey/videos
 
 # ---- macOS ----
 # General
