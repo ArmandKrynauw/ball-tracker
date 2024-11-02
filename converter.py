@@ -17,8 +17,8 @@ def normalize_to_yolo(x_center_percent, y_center_percent, width_percent, height_
     # Convert from percentages to pixels
     x_center_px = (x_center_percent / 100.0) * img_width
     y_center_px = (y_center_percent / 100.0) * img_height
-    width_px = (width_percent) * img_width  # width is already in decimal form
-    height_px = (height_percent) * img_height  # height is already in decimal form
+    width_px = (width_percent / 100.0) * img_width
+    height_px = (height_percent / 100.0) * img_height
 
     # Convert to YOLO format (normalized 0-1)
     x_yolo = x_center_px / img_width
