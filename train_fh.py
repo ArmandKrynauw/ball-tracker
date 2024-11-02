@@ -20,7 +20,7 @@ def prepare_training_data():
         dir.mkdir(parents=True, exist_ok=True)
     
     # Get all image files
-    source_images = (DATA_DIR / "fh_data" / "images").glob("*.jpg")
+    source_images = (DATA_DIR / "field_hockey_yolo" / "images").glob("*.jpg")
     image_files = sorted(list(source_images))
     
     # Determine split (80% train, 20% val)
@@ -32,7 +32,7 @@ def prepare_training_data():
     # Split and copy files
     for idx, img_path in enumerate(image_files):
         # Get corresponding label path
-        label_path = DATA_DIR / "fh_data" / "labels" / f"{img_path.stem}.txt"
+        label_path = DATA_DIR / "field_hockey_yolo" / "labels" / f"{img_path.stem}.txt"
         
         if idx in val_indices:
             # Copy to validation set
