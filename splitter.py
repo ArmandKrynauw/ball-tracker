@@ -52,17 +52,41 @@ def extract_frames_ffmpeg(video_path, frames_dir, start_frame, end_frame, frame_
         logging.info(f"Extracting {frame_count} frames for clip {start_frame}-{end_frame} from {video_path.name}")
         
         # Adjust start and end frames by +2 to align with annotations
-        frame_offset = 4
+        frame_offset = 1
         cmd = [
             'ffmpeg',
             '-i', str(video_path),
-            '-vf', f'trim=start_frame={start_frame+frame_offset-1}:end_frame={end_frame+frame_offset-1},setpts=PTS-STARTPTS',
-            '-r', '25',  # Force 25 fps extraction
-            '-frames:v', str(frame_count),  # Extract exact number of frames
-            '-start_number', '1',  # Start from 1 for each clip
+            '-vf', f'trim=start_frame={start_frame+frame_offset-1}:end_frame={end_frame+frame_offset-1},setpts=PTS-STARTPTS,fps=fps=25:round=down',  # More precise fps conversion
+            '-frames:v', str(frame_count),
+            '-start_number', '1',
             '-q:v', '2',
-            f'{str(clip_dir)}/frame_%04d.jpg'  # Use 4-digit padding
+            f'{str(clip_dir)}/frame_%04d.jpg'
         ]
+        # Alternative command using timestamp-based selection:
+        # cmd = [
+        #     'ffmpeg',
+        #     '-i', str(video_path),
+        #     '-vf', f'trim=start_frame={start_frame+frame_offset-1}:end_frame={end_frame+frame_offset-1},setpts=PTS-STARTPTS',
+        #     '-vsync', 'cfr',  # Constant frame rate
+        #     '-fps_mode', 'cfr',
+        #     '-r', '25',
+        #     '-frames:v', str(frame_count),
+        #     '-start_number', '1',
+        #     '-q:v', '2',
+        #     f'{str(clip_dir)}/frame_%04d.jpg'
+        # ]
+        
+        
+        # cmd = [
+        #     'ffmpeg',
+        #     '-i', str(video_path),
+        #     '-vf', f'trim=start_frame={start_frame+frame_offset}:end_frame={end_frame+frame_offset},setpts=PTS-STARTPTS',
+        #     '-r', '25',  # Force 25 fps extraction
+        #     '-frames:v', str(frame_count),  # Extract exact number of frames
+        #     '-start_number', '1',  # Start from 1 for each clip
+        #     '-q:v', '2',
+        #     f'{str(clip_dir)}/frame_%04d.jpg'  # Use 4-digit padding
+        # ]
         
         result = subprocess.run(cmd, capture_output=True, text=True)
         
@@ -120,7 +144,8 @@ def main():
         print(f"Queued video {video_id} for processing")
         video_path = videos_dir / f"{video_id}.mp4"
         if video_path.exists():
-            tasks.append((video_path, frames_dir, frame_ranges[4:5], base_dir))
+            # tasks.append((video_path, frames_dir, frame_ranges[5:6], base_dir))
+            tasks.append((video_path, frames_dir, frame_ranges, base_dir))
         else:
             logging.error(f"Video file not found: {video_path}")
     
