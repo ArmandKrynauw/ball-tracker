@@ -110,8 +110,8 @@ class YOLOVisualizer:
 
 
 def main():
-    images_dir = "data/dataset/images/valid"  # Change this to your images directory
-    labels_dir = "data/dataset/labels/valid"  # Change this to your labels directory
+    images_dir = "data/dataset/images/train"  # Change this to your images directory
+    labels_dir = "data/dataset/labels/train"  # Change this to your labels directory
 
     YOLOVisualizer(images_dir, labels_dir)
 

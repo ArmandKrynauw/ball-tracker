@@ -4,23 +4,12 @@ data
 local
 *.zip
 runs
-
+video*
+annotations
 # Yolo models
+*.mp4
 yolo*
-
-# ---- macOS ----
-# General
-.DS_Store
-.AppleDouble
-.LSOverride
-
-# Icon must end with two \r
-Icon
-
-
-# Thumbnails
-._*
-
+*.json      
 # Files that might appear in the root of a volume
 .DocumentRevisions-V100
 .fseventsd
