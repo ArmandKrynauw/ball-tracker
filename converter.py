@@ -93,12 +93,10 @@ def main():
     output_dir = base_dir / 'yolo_annotations'
 
     # Process each JSON file in the annotations directory
-    # for json_path in annotations_dir.glob('*.json'):
-    #     print(f"Processing {json_path.name}")
-    #     process_annotation_file(json_path, output_dir)
-    #     break
+    for json_path in annotations_dir.glob('*.json'):
+        print(f"Processing {json_path.name}")
+        process_annotation_file(json_path, output_dir)
 
-    process_annotation_file(annotations_dir / 'fh_02_7956-8142.json', output_dir)
 
 if __name__ == "__main__":
     main()
