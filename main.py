@@ -7,7 +7,7 @@ from tqdm.notebook import tqdm
 import pandas as pd
 import os
 from pathlib import Path
-
+from label_studio_converter import main as convert_to_yolo
 
 from utils import (
     DATA_DIR,
@@ -19,12 +19,15 @@ from utils import (
 
 logger = logging.getLogger(__name__)
 
+# Download and extraction of data
 download_from_drive("1XGD6ZRUiFVuvpKsfOQLreA27lTRM3d2-", "images.zip")
-
 download_from_drive("1XGD6ZRUiFVuvpKsfOQLreA27lTRM3d2-", "annotations.zip")
 
 unzipData(DATA_DIR / "images","images.zip")
 unzipData(DATA_DIR / "annotations","annotations.zip")
+convert_to_yolo()
+
+# Amendments and pre-processing of data
 setup_dataset()
 
 data_path = create_yolo_data_file(["ball","puck"]) 
