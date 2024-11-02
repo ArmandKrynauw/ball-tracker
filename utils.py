@@ -26,10 +26,8 @@ TEST_LABELS_DIR = LABELS_DIR / "test"
 YOLO_DATASET_DIRS = [
     TRAIN_IMAGES_DIR,
     VALID_IMAGES_DIR,
-    TEST_IMAGES_DIR,
     TRAIN_LABELS_DIR,
     VALID_LABELS_DIR,
-    TEST_LABELS_DIR,
 ]
 
 
@@ -61,13 +59,20 @@ def download_from_drive(id, name: str):
     return output_path
 
 
-def copy_roboflow_data(data_dir: Path, output_data_dir: Path | None = None):
+def unzipData(input_dir: Path, file_name : str):
+    if not (input_dir).exists():
+        if not (DATA_DIR / file_name).exists():
+            raise FileNotFoundError(f"{file_name} file not found in {DATA_DIR}")
+
+        logger.info("Unzipping images.zip...")
+        shutil.unpack_archive(DATA_DIR / file_name,input_dir)
+
+
+def setup_dataset(output_data_dir: Path | None = None):
     # Check if directory already exists 
-    if data_dir.exists():
-            print(f"Directory '{data_dir}' already exists. Skipping copy operation.")
+    if DATASET_DIR.exists():
+            print(f"Directory '{DATASET_DIR}' already exists. Skipping copy operation.")
             return
-
-
 
     if not output_data_dir:
         output_data_dir = DATASET_DIR
@@ -75,29 +80,68 @@ def copy_roboflow_data(data_dir: Path, output_data_dir: Path | None = None):
     for dir in YOLO_DATASET_DIRS:
         dir.mkdir(parents=True, exist_ok=True)
 
-    train_images_path = data_dir / "train" / "images"
+    images_data_dir = DATA_DIR / "images"
+
+    # Images folder
+    train_images_path =  images_data_dir / "train" / "images"
     for img in tqdm.tqdm(train_images_path.glob("*"), desc="Copying training images"):
         shutil.copy(img, TRAIN_IMAGES_DIR / img.name)
 
-    val_images_path = data_dir / "valid" / "images"
+    val_images_path = images_data_dir / "valid" / "images"
     for img in tqdm.tqdm(val_images_path.glob("*"), desc="Copying validation images"):
         shutil.copy(img, VALID_IMAGES_DIR / img.name)
 
-    test_images_path = data_dir / "test" / "images"
-    for img in tqdm.tqdm(test_images_path.glob("*"), desc="Copying test images"):
-        shutil.copy(img, TEST_IMAGES_DIR / img.name)
 
-    train_labels_path = data_dir / "train" / "labels"
+    train_labels_path = images_data_dir / "train" / "labels"
     for label in tqdm.tqdm(train_labels_path.glob("*"), desc="Copying training labels"):
         shutil.copy(label, TRAIN_LABELS_DIR / label.name)
 
-    val_labels_path = data_dir / "valid" / "labels"
+    val_labels_path = images_data_dir / "valid" / "labels"
     for label in tqdm.tqdm(val_labels_path.glob("*"), desc="Copying validation labels"):
         shutil.copy(label, VALID_LABELS_DIR / label.name)
 
-    test_labels_path = data_dir / "test" / "labels"
+
+
+
+    annotations_images_dir = DATA_DIR / "annotations" / "dataset" / "images"
+
+    annotations_labels_dir = DATA_DIR / "annotations" / "dataset" / "labels"
+    # Copy images from annotations
+    train_images_path = annotations_images_dir / "train"
+    for img in tqdm.tqdm(train_images_path.glob("*"), desc="Copying training images"):
+        shutil.copy(img, TRAIN_IMAGES_DIR / img.name)
+
+    val_images_path = annotations_images_dir / "val"
+    for img in tqdm.tqdm(val_images_path.glob("*"), desc="Copying validation images"):
+        shutil.copy(img, VALID_IMAGES_DIR / img.name)
+
+    # Copy labels from annotations
+    train_labels_path = annotations_labels_dir / "train"
+    for label in tqdm.tqdm(train_labels_path.glob("*"), desc="Copying training labels"):
+        shutil.copy(label, TRAIN_LABELS_DIR / label.name)
+
+    val_labels_path = annotations_labels_dir / "val"
+    for label in tqdm.tqdm(val_labels_path.glob("*"), desc="Copying validation labels"):
+        shutil.copy(label, VALID_LABELS_DIR / label.name)
+
+
+    # Merge testing images and labels into training sets for both images and annotations
+    test_images_path = images_data_dir / "test" / "images"
+    for img in tqdm.tqdm(test_images_path.glob("*"), desc="Copying test images"):
+        shutil.copy(img, TRAIN_IMAGES_DIR / img.name)
+
+    test_labels_path = images_data_dir / "test" / "labels"
+    for img in tqdm.tqdm(test_images_path.glob("*"), desc="Copying test images"):
+        shutil.copy(img, TRAIN_IMAGES_DIR / img.name)
+
+    test_labels_path = annotations_labels_dir / "test"
     for label in tqdm.tqdm(test_labels_path.glob("*"), desc="Copying test labels"):
-        shutil.copy(label, TEST_LABELS_DIR / label.name)
+        shutil.copy(label, TRAIN_LABELS_DIR / label.name)
+
+    test_labels_path = annotations_images_dir / "test" / "labels"
+    for label in tqdm.tqdm(test_labels_path.glob("*"), desc="Copying test labels"):
+        shutil.copy(label, TRAIN_LABELS_DIR / label.name)
+    
 
 
 def create_yolo_data_file(class_names: List[str]):

@@ -11,24 +11,21 @@ from pathlib import Path
 
 from utils import (
     DATA_DIR,
-    copy_roboflow_data,
+    setup_dataset,
     create_yolo_data_file,
     download_from_drive,
+    unzipData,
 )
 
 logger = logging.getLogger(__name__)
 
 download_from_drive("1XGD6ZRUiFVuvpKsfOQLreA27lTRM3d2-", "images.zip")
 
+download_from_drive("1XGD6ZRUiFVuvpKsfOQLreA27lTRM3d2-", "annotations.zip")
 
-if not (DATA_DIR / "images").exists():
-    if not (DATA_DIR / "images.zip").exists():
-        raise FileNotFoundError(f"images.zip file not found in {DATA_DIR}")
-
-    logger.info("Unzipping images.zip...")
-    shutil.unpack_archive(DATA_DIR / "images.zip", DATA_DIR / "images")
-
-copy_roboflow_data(DATA_DIR / "images")
+unzipData(DATA_DIR / "images","images.zip")
+unzipData(DATA_DIR / "annotations","annotations.zip")
+setup_dataset()
 
 data_path = create_yolo_data_file(["ball","puck"]) 
 
