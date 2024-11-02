@@ -2,7 +2,7 @@ import os
 
 def update_labels(directory):
     # Define the subdirectories to check
-    subdirs = ["train", "test", "val"]
+    subdirs = ["train", "test", "valid"]
 
     for subdir in subdirs:
         subdir_path = os.path.join(directory, subdir)

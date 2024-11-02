@@ -23,23 +23,23 @@ def convert_video_and_detect_edges(input_video_path, output_video_path):
         gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
         # Perform Canny edge detection
-        edges_frame = cv2.Canny(gray_frame, threshold1=-100, threshold2=200 )
-        # Otsu's Thresholding
-        _, otsu_thresh = cv2.threshold(gray_frame, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        # edges_frame = cv2.Canny(gray_frame, threshold1=-100, threshold2=200 )
+        # # Otsu's Thresholding
+        # _, otsu_thresh = cv2.threshold(gray_frame, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
 
-        # Adaptive Thresholding
-        adaptive_thresh = cv2.adaptiveThreshold(
-            gray_frame, 
-            255, 
-            cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
-            cv2.THRESH_BINARY, 
-            11,  
-            2    
-        )
+        # # Adaptive Thresholding
+        # adaptive_thresh = cv2.adaptiveThreshold(
+        #     gray_frame, 
+        #     255, 
+        #     cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+        #     cv2.THRESH_BINARY, 
+        #     11,  
+        #     2    
+        # )
 
 
-        out.write(adaptive_thresh)
+        out.write(gray_frame)
 
 
 
@@ -49,6 +49,6 @@ def convert_video_and_detect_edges(input_video_path, output_video_path):
     print(f"Processed video saved to {output_video_path}")
 
 # Usage example
-input_video = 'videos/Hockey1.mp4'  # Replace with your input video file path
+input_video = 'videos/video_2.mp4'  # Replace with your input video file path
 output_video = 'output_combined_video.mp4'  # Replace with your desired output file path
 convert_video_and_detect_edges(input_video, output_video)
