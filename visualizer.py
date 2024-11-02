@@ -4,22 +4,33 @@ from pathlib import Path
 
 import cv2
 import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
 
 
 class YOLOVisualizer:
     def __init__(self, images_dir, labels_dir):
-        self.image_paths = sorted(glob.glob(os.path.join(images_dir, "*.jpg")))
-        self.label_paths = sorted(glob.glob(os.path.join(labels_dir, "*.txt")))
-        self.index = 0
+        # Get all image and label paths
+        image_paths = sorted(glob.glob(os.path.join(images_dir, "*.jpg")))
+        label_paths = sorted(glob.glob(os.path.join(labels_dir, "*.txt")))
 
-        if len(self.image_paths) == 0:
+        if len(image_paths) == 0:
             raise ValueError(f"No images found in {images_dir}")
 
-        if len(self.image_paths) != len(self.label_paths):
-            raise ValueError("Number of images and labels do not match!")
+        # Match images with their corresponding labels
+        self.matched_pairs = []
+        for img_path in image_paths:
+            img_name = Path(img_path).stem
+            label_path = os.path.join(labels_dir, f"{img_name}.txt")
+            if os.path.exists(label_path):
+                self.matched_pairs.append((img_path, label_path))
 
+        if len(self.matched_pairs) == 0:
+            raise ValueError("No matching image-label pairs found!")
+
+        self.index = 0
         print(
-            f"Found {len(self.image_paths)} images. Use arrow keys to navigate, 'q' to quit."
+            f"Found {len(self.matched_pairs)} matching image-label pairs. "
+            f"Use arrow keys to navigate, 'q' to quit."
         )
 
         plt.ion()  # Turn on interactive mode
@@ -31,12 +42,13 @@ class YOLOVisualizer:
     def plot_current_image(self):
         plt.clf()  # Clear the current figure
 
-        image_path = Path(self.image_paths[self.index])
-        label_path = Path(self.label_paths[self.index])
+        image_path, label_path = self.matched_pairs[self.index]
+        image_path = Path(image_path)
+        label_path = Path(label_path)
 
         # Display current image name
         print(
-            f"Showing image {self.index + 1}/{len(self.image_paths)}: {image_path.name}"
+            f"Showing pair {self.index + 1}/{len(self.matched_pairs)}: {image_path.name}"
         )
 
         # Read and display image
@@ -47,37 +59,36 @@ class YOLOVisualizer:
         plt.imshow(image)
 
         # Plot YOLO labels
-        if label_path.exists():
-            with open(label_path, "r") as f:
-                for line in f.readlines():
-                    class_id, x, y, width, height = map(float, line.split())
+        with open(label_path, "r") as f:
+            for line in f.readlines():
+                class_id, x, y, width, height = map(float, line.split())
 
-                    # Convert normalized YOLO coordinates to pixel coordinates
-                    x1 = int((x - width / 2) * w)
-                    y1 = int((y - height / 2) * h)
-                    x2 = int((x + width / 2) * w)
-                    y2 = int((y + height / 2) * h)
+                # Convert normalized YOLO coordinates to pixel coordinates
+                x1 = int((x - width / 2) * w)
+                y1 = int((y - height / 2) * h)
+                x2 = int((x + width / 2) * w)
+                y2 = int((y + height / 2) * h)
 
-                    # Plot rectangle
-                    rect = plt.Rectangle(
-                        (x1, y1), x2 - x1, y2 - y1, fill=False, color="red", linewidth=1
-                    )
-                    plt.gca().add_patch(rect)
+                # Plot rectangle
+                rect = Rectangle(
+                    (x1, y1), x2 - x1, y2 - y1, fill=False, color="red", linewidth=1
+                )
+                plt.gca().add_patch(rect)
 
-                    # Add class label
-                    plt.text(
-                        x1,
-                        y1 - 5,
-                        f"Class {int(class_id)}",
-                        color="red",
-                        fontweight="bold",
-                    )
+                # Add class label
+                plt.text(
+                    x1,
+                    y1 - 5,
+                    f"Class {int(class_id)}",
+                    color="red",
+                    fontweight="bold",
+                )
 
         # Add image counter and filename
         plt.text(
             10,
             30,
-            f"Image {self.index + 1}/{len(self.image_paths)}",
+            f"Image {self.index + 1}/{len(self.matched_pairs)}",
             color="white",
             fontsize=12,
             fontweight="bold",
@@ -98,18 +109,20 @@ class YOLOVisualizer:
 
     def on_key(self, event):
         if event.key == "right":
-            self.index = (self.index + 1) % len(self.image_paths)
+            self.index = (self.index + 1) % len(self.matched_pairs)
             self.plot_current_image()
         elif event.key == "left":
-            self.index = (self.index - 1) % len(self.image_paths)
+            self.index = (self.index - 1) % len(self.matched_pairs)
             self.plot_current_image()
         elif event.key == "q":
             plt.close("all")
 
 
 def main():
-    images_dir = "data/dataset/images/valid"  # Change this to your images directory
-    labels_dir = "data/dataset/labels/valid"  # Change this to your labels directory
+    # Set up paths
+    base_dir = Path('data/field_hockey')
+    images_dir = base_dir / "frames"
+    labels_dir = base_dir / "yolo_annotations"
 
     YOLOVisualizer(images_dir, labels_dir)
 
