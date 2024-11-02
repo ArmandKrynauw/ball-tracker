@@ -8,87 +8,106 @@ from matplotlib.patches import Rectangle
 
 
 class YOLOVisualizer:
-    def __init__(self, images_dir, labels_dir):
-        # Get all image and label paths
-        image_paths = sorted(glob.glob(os.path.join(images_dir, "*.jpg")))
-        label_paths = sorted(glob.glob(os.path.join(labels_dir, "*.txt")))
+    def __init__(self, frames_dir, labels_dir):
+        # Get all clip directories
+        frame_clip_dirs = sorted([d for d in frames_dir.glob("*") if d.is_dir()])
+        label_clip_dirs = sorted([d for d in labels_dir.glob("*") if d.is_dir()])
 
-        if len(image_paths) == 0:
-            raise ValueError(f"No images found in {images_dir}")
+        if len(frame_clip_dirs) == 0:
+            raise ValueError(f"No clip directories found in {frames_dir}")
 
-        # Match images with their corresponding labels
-        self.matched_pairs = []
-        for img_path in image_paths:
-            img_name = Path(img_path).stem
-            label_path = os.path.join(labels_dir, f"{img_name}.txt")
-            if os.path.exists(label_path):
-                self.matched_pairs.append((img_path, label_path))
+        # Match clips with their corresponding labels
+        self.clips = []
+        for frame_dir in frame_clip_dirs:
+            clip_name = frame_dir.name
+            label_dir = labels_dir / clip_name
+            
+            if label_dir.exists():
+                # Get all frames and labels in this clip
+                frame_paths = sorted(frame_dir.glob("frame_*.jpg"))
+                label_paths = sorted(label_dir.glob("frame_*.txt"))
+                
+                # Match frames with labels
+                matched_pairs = []
+                for frame_path in frame_paths:
+                    frame_num = frame_path.stem
+                    label_path = label_dir / f"{frame_num}.txt"
+                    if label_path.exists():
+                        matched_pairs.append((frame_path, label_path))
+                
+                if matched_pairs:
+                    self.clips.append({
+                        'name': clip_name,
+                        'pairs': matched_pairs,
+                        'current_index': 0
+                    })
 
-        if len(self.matched_pairs) == 0:
-            raise ValueError("No matching image-label pairs found!")
+        if len(self.clips) == 0:
+            raise ValueError("No matching clips found!")
 
-        self.index = 0
+        self.current_clip = 0
         print(
-            f"Found {len(self.matched_pairs)} matching image-label pairs. "
-            f"Use arrow keys to navigate, 'q' to quit."
+            f"Found {len(self.clips)} clips. "
+            f"Use left/right arrows to navigate frames, up/down arrows to navigate clips, 'q' to quit."
         )
 
         plt.ion()  # Turn on interactive mode
         self.fig = plt.figure(figsize=(12, 10))
         self.fig.canvas.mpl_connect("key_press_event", self.on_key)
-        self.plot_current_image()
+        self.plot_current_frame()
         plt.show(block=True)
 
-    def plot_current_image(self):
+    def plot_current_frame(self):
         plt.clf()  # Clear the current figure
 
-        image_path, label_path = self.matched_pairs[self.index]
-        image_path = Path(image_path)
-        label_path = Path(label_path)
+        clip = self.clips[self.current_clip]
+        frame_path, label_path = clip['pairs'][clip['current_index']]
 
         # Display current image name
         print(
-            f"Showing pair {self.index + 1}/{len(self.matched_pairs)}: {image_path.name}"
+            f"Showing clip {self.current_clip + 1}/{len(self.clips)}: {clip['name']}, "
+            f"frame {clip['current_index'] + 1}/{len(clip['pairs'])}"
         )
 
         # Read and display image
-        image = cv2.imread(str(image_path))
+        image = cv2.imread(str(frame_path))
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         h, w = image.shape[:2]
 
         plt.imshow(image)
 
-        # Plot YOLO labels
-        with open(label_path, "r") as f:
-            for line in f.readlines():
-                class_id, x, y, width, height = map(float, line.split())
+        # Plot YOLO labels if file is not empty
+        if label_path.stat().st_size > 0:
+            with open(label_path, "r") as f:
+                for line in f.readlines():
+                    class_id, x, y, width, height = map(float, line.split())
 
-                # Convert normalized YOLO coordinates to pixel coordinates
-                x1 = int((x - width / 2) * w)
-                y1 = int((y - height / 2) * h)
-                x2 = int((x + width / 2) * w)
-                y2 = int((y + height / 2) * h)
+                    # Convert normalized YOLO coordinates to pixel coordinates
+                    x1 = int((x - width / 2) * w)
+                    y1 = int((y - height / 2) * h)
+                    x2 = int((x + width / 2) * w)
+                    y2 = int((y + height / 2) * h)
 
-                # Plot rectangle
-                rect = Rectangle(
-                    (x1, y1), x2 - x1, y2 - y1, fill=False, color="red", linewidth=1
-                )
-                plt.gca().add_patch(rect)
+                    # Plot rectangle
+                    rect = Rectangle(
+                        (x1, y1), x2 - x1, y2 - y1, fill=False, color="red", linewidth=1
+                    )
+                    plt.gca().add_patch(rect)
 
-                # Add class label
-                plt.text(
-                    x1,
-                    y1 - 5,
-                    f"Class {int(class_id)}",
-                    color="red",
-                    fontweight="bold",
-                )
+                    # Add class label
+                    plt.text(
+                        x1,
+                        y1 - 5,
+                        f"Class {int(class_id)}",
+                        color="red",
+                        fontweight="bold",
+                    )
 
-        # Add image counter and filename
+        # Add clip and frame information
         plt.text(
             10,
             30,
-            f"Image {self.index + 1}/{len(self.matched_pairs)}",
+            f"Clip {self.current_clip + 1}/{len(self.clips)} - Frame {clip['current_index'] + 1}/{len(clip['pairs'])}",
             color="white",
             fontsize=12,
             fontweight="bold",
@@ -97,7 +116,7 @@ class YOLOVisualizer:
         plt.text(
             10,
             h - 20,
-            image_path.name,
+            f"{clip['name']} - {frame_path.name}",
             color="white",
             fontsize=10,
             bbox=dict(facecolor="black", alpha=0.6),
@@ -105,26 +124,37 @@ class YOLOVisualizer:
 
         plt.axis("off")
         plt.draw()
-        plt.pause(0.001)  # Small pause to update the plot
+        plt.pause(0.001)
 
     def on_key(self, event):
+        clip = self.clips[self.current_clip]
+        
         if event.key == "right":
-            self.index = (self.index + 1) % len(self.matched_pairs)
-            self.plot_current_image()
+            # Next frame in current clip
+            clip['current_index'] = (clip['current_index'] + 1) % len(clip['pairs'])
         elif event.key == "left":
-            self.index = (self.index - 1) % len(self.matched_pairs)
-            self.plot_current_image()
+            # Previous frame in current clip
+            clip['current_index'] = (clip['current_index'] - 1) % len(clip['pairs'])
+        elif event.key == "up":
+            # Previous clip
+            self.current_clip = (self.current_clip - 1) % len(self.clips)
+        elif event.key == "down":
+            # Next clip
+            self.current_clip = (self.current_clip + 1) % len(self.clips)
         elif event.key == "q":
             plt.close("all")
+            return
+
+        self.plot_current_frame()
 
 
 def main():
     # Set up paths
     base_dir = Path('data/field_hockey')
-    images_dir = base_dir / "frames"
+    frames_dir = base_dir / "frames"
     labels_dir = base_dir / "yolo_annotations"
 
-    YOLOVisualizer(images_dir, labels_dir)
+    YOLOVisualizer(frames_dir, labels_dir)
 
 
 if __name__ == "__main__":
