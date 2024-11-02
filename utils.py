@@ -62,6 +62,13 @@ def download_from_drive(id, name: str):
 
 
 def copy_roboflow_data(data_dir: Path, output_data_dir: Path | None = None):
+    # Check if directory already exists 
+    if data_dir.exists():
+            print(f"Directory '{data_dir}' already exists. Skipping copy operation.")
+            return
+
+
+
     if not output_data_dir:
         output_data_dir = DATASET_DIR
 

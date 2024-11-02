@@ -6,31 +6,36 @@ import cv2
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from ultralytics import YOLO
+from pathlib import Path
+import torch
 
 from utils import DATA_DIR, TEST_IMAGES_DIR, TRAIN_IMAGES_DIR
 
 
 class PredictionVisualizer:
-    def __init__(self, model_path, images_dir):
+    def __init__(self, model_path, video_dir):
         self.model = YOLO(model_path)
-        self.image_paths = sorted(glob.glob(os.path.join(images_dir, "*.jpg")))
+        # self.image_paths = sorted(glob.glob(os.path.join(images_dir, "*.jpg")))
         self.index = 0
         self.predictions = {}  # Cache for storing predictions
 
-        if len(self.image_paths) == 0:
-            raise ValueError(f"No images found in {images_dir}")
+        # if len(self.image_paths) == 0:
+        #     raise ValueError(f"No images found in {images_dir}")
 
-        print(f"Found {len(self.image_paths)} images. Use arrow keys to navigate, 'q' to quit.")
+        # print(f"Found {len(self.image_paths)} images. Use arrow keys to navigate, 'q' to quit.")
 
-        plt.ion()
-        self.fig = plt.figure(figsize=(12, 10))
-        self.fig.canvas.mpl_connect('key_press_event', self.on_key)
-        self.plot_current_image()
-        plt.show(block=True)
+        results = self.model.track(
+            video_dir,conf=0.1,max_det=1,save=True,project = Path(os.getcwd()) / "runs/detect" )
+
+        # plt.ion()
+        # self.fig = plt.figure(figsize=(12, 10))
+        # self.fig.canvas.mpl_connect('key_press_event', self.on_key)
+        # self.plot_current_image()
+        # plt.show(block=True)
 
     def get_prediction(self, image_path):
         if image_path not in self.predictions:
-            results = self.model.predict(image_path, conf=0.1)
+            results = self.model.predict(image_path, conf=0.1,max_det=1)
             self.predictions[image_path] = results[0]
         return self.predictions[image_path]
 
@@ -52,7 +57,11 @@ class PredictionVisualizer:
 
         for box in boxes:
             # Get box coordinates
-            x1, y1, x2, y2 = box.xyxy[0]
+            
+            if torch.cuda.is_available():
+                x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
+            else:
+                x1, y1, x2, y2 = box.xyxy[0]
 
             # Plot rectangle
             rect = Rectangle(
@@ -111,10 +120,14 @@ class PredictionVisualizer:
 
 
 def main():
-    model_path = DATA_DIR / "francois" / "best.pt"
+    model_path = Path(os.getcwd()) / "runs/detect/run39/weights/best.pt"
     images_dir = TRAIN_IMAGES_DIR
 
-    PredictionVisualizer(model_path, images_dir)
+    #Check if video exists
+    if not os.path.exists("output_combined_video.mp4"):
+        raise FileNotFoundError("output_combined_video.mp4 not found. Run inference)")
+
+    PredictionVisualizer(model_path,"output_combined_video.mp4" )
 
 
 if __name__ == "__main__":
