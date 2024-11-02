@@ -84,8 +84,6 @@ def process_annotation_file(json_path, output_dir):
         # Write the annotation (or empty file if no annotation exists)
         with open(annotation_file, 'w') as f:
             if frame_num in frame_annotations:
-                print(f"Writing annotation for {video_name}_{frame_num}.txt")
-                print(frame_annotations[frame_num])
                 f.write(frame_annotations[frame_num])
 
 def main():
