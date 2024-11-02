@@ -13,22 +13,27 @@ def extract_frame_range(filename):
         return video_name, start_frame, end_frame
     return None
 
-
 def normalize_to_yolo(
-    x_center_percent,
-    y_center_percent,
+    x_tl_percent,  # x top-left percentage
+    y_tl_percent,  # y top-left percentage
     width_percent,
     height_percent,
     img_width=1920,
     img_height=1080,
 ):
-    """Convert from percentage coordinates to YOLO format"""
-    # Convert from percentages to pixels
-    x_center_px = (x_center_percent / 100.0) * img_width
-    y_center_px = (y_center_percent / 100.0) * img_height
+    """Convert from top-left percentage coordinates to YOLO format (center-based)"""
+    # Convert width and height to pixels
     width_px = (width_percent / 100.0) * img_width
     height_px = (height_percent / 100.0) * img_height
-
+    
+    # Convert top-left percentages to pixels
+    x_tl_px = (x_tl_percent / 100.0) * img_width
+    y_tl_px = (y_tl_percent / 100.0) * img_height
+    
+    # Calculate center coordinates in pixels
+    x_center_px = x_tl_px + (width_px / 2)  # Add half width to get to center
+    y_center_px = y_tl_px + (height_px / 2)  # Add half height to get to center
+    
     # Convert to YOLO format (normalized 0-1)
     x_yolo = x_center_px / img_width
     y_yolo = y_center_px / img_height
@@ -36,7 +41,6 @@ def normalize_to_yolo(
     h_yolo = height_px / img_height
 
     return x_yolo, y_yolo, w_yolo, h_yolo
-
 
 def process_annotation_file(json_path, output_dir):
     """Process a single annotation file and create YOLO format annotations"""

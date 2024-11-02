@@ -16,6 +16,7 @@ data/track*
 data/*.yaml
 data/*.pt
 data/field_hockey/videos
+data/field_hockey/frames
 
 # ---- macOS ----
 # General
