@@ -47,7 +47,7 @@ class PredictionVisualizer:
         plt.imshow(image)
 
         # Get and plot predictions
-        result = self.get_prediction(image_path)
+        result = self.get_prediction(image_path).cpu()
         boxes = result.boxes
 
         for box in boxes:
@@ -111,8 +111,9 @@ class PredictionVisualizer:
 
 
 def main():
-    model_path = DATA_DIR / "francois" / "best.pt"
-    images_dir = TRAIN_IMAGES_DIR
+    model_path = DATA_DIR / "best.pt"
+    images_dir = DATA_DIR / "dataset" / "train" / "images"
+    # images_dir = TRAIN_IMAGES_DIR
 
     PredictionVisualizer(model_path, images_dir)
 

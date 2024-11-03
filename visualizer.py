@@ -14,7 +14,7 @@ class YOLOVisualizer:
         label_clip_dirs = sorted([d for d in labels_dir.glob("*") if d.is_dir()])
 
         if len(frame_clip_dirs) == 0:
-            raise ValueError(f"No clip directories found in {frames_dir}")
+            raise ValueError(f"No frame clip directories found in {frames_dir}")
 
         # Match clips with their corresponding labels
         self.clips = []
@@ -43,7 +43,7 @@ class YOLOVisualizer:
                     })
 
         if len(self.clips) == 0:
-            raise ValueError("No matching clips found!")
+            raise ValueError(f"No matching clips found!\n\tFrames dir: {frames_dir}\n\tLabels dir: {labels_dir}")
 
         self.current_clip = 0
         print(
