@@ -42,14 +42,14 @@ console_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
 
 
-def download_from_drive(id, name: str):
-    output_path = DATA_DIR / name
+def download_from_drive(id,dir : Path, name: str):
+    output_path = dir / name
 
     if output_path.exists():
         logger.info(f"{name} already exists in {output_path}")
         return
 
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    dir.mkdir(parents=True, exist_ok=True)
 
     logger.info(f"Downloading {name}...")
     gdown.download(

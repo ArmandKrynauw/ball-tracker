@@ -26,7 +26,6 @@ class PredictionVisualizer:
 
         results = self.model.track(
             video_dir,conf=0.1,max_det=1,save=True,project = Path(os.getcwd()) / "runs/detect" )
-
         # plt.ion()
         # self.fig = plt.figure(figsize=(12, 10))
         # self.fig.canvas.mpl_connect('key_press_event', self.on_key)

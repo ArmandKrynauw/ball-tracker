@@ -37,6 +37,7 @@ def export_clip(video_path, start_frame, end_frame):
 
 def main():
     clips = pd.read_csv(clips_path)
+    print(f"Exporting {len(clips)} clips...")
 
     # Be warned. This will kill your CPU lol. Couldn't bother to implement the
     # clipping with ffmpeg using a gpu codecs
@@ -47,6 +48,8 @@ def main():
             clip['end_frame']
         ) for i, clip in clips.iterrows()
     )
+
+    print("Clips exported successfully!")
 
 if __name__ == "__main__":
     main()

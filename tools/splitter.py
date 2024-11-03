@@ -65,7 +65,9 @@ def extract_frames_ffmpeg(video_path, frames_dir, start_frame, end_frame, frame_
 
         logging.info(f"Extracting {frame_count} frames for clip {start_frame}-{end_frame} from {video_path.name}")
 
+        print('clip_dir',clip_dir)
         frame_offset = 0
+        # print('params',video_path,start_frame+frame_offset,end_frame+frame_offset,frame_count)
         cmd = [
             'ffmpeg',
             '-i', str(video_path),
@@ -75,6 +77,7 @@ def extract_frames_ffmpeg(video_path, frames_dir, start_frame, end_frame, frame_
             '-q:v', '2',
             f'{str(clip_dir)}/frame_%04d.jpg'
         ]
+        print(' '.join(cmd))
 
         result = subprocess.run(cmd, capture_output=True, text=True)
 

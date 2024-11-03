@@ -1,6 +1,8 @@
 import os
 
-def update_labels(directory):
+
+
+def main(directory):
     # Define the subdirectories to check
     subdirs = ["train", "test", "valid"]
 
@@ -37,6 +39,9 @@ def update_labels(directory):
 
 
 # Provide the path to your directory here
-directory = "data/dataset/labels"
-update_labels(directory)
 
+
+if __name__ == "__main__":
+    directory = "data/dataset/labels"
+
+    main(directory)
