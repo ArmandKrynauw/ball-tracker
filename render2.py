@@ -364,25 +364,65 @@ model_path = DATA_DIR / "best_fh_2.pt"
 images_dir = DATA_DIR / "dataset" / "train" / "images"
 video_output_path = DATA_DIR / "tracked_hockey_ball.mp4"
 video_input_path = DATA_DIR / "field_hockey" / "videos" / "fh_04.mp4"
+MAX_FRAMES = 400
+FPS = 30
 
 # Extract frames from video
-video_to_frames(video_input_path, images_dir, start_frame=450, end_frame=720, fps=30)
+# video_to_frames(video_input_path, images_dir, start_frame=450, end_frame=720, fps=FPS)
+video_to_frames(video_input_path, images_dir, start_frame=1810, end_frame=2440, fps=FPS)
 
 # Get list of image paths
 image_paths = sorted(glob.glob(os.path.join(images_dir, "*.jpg")))
 
-# Generate predictions at the beginning
-predictions = generate_predictions(model_path, image_paths, 100)
+# Calculate hash of model and images for caching
+import hashlib
+import pickle
+def get_file_hash(filepath):
+    hasher = hashlib.md5()
+    with open(filepath, 'rb') as f:
+        buf = f.read(65536)
+        while len(buf) > 0:
+            hasher.update(buf)
+            buf = f.read(65536)
+    return hasher.hexdigest()
+
+model_hash = get_file_hash(model_path)
+images_hash = hashlib.md5()
+for img_path in image_paths[:MAX_FRAMES]:
+    images_hash.update(get_file_hash(img_path).encode())
+cache_key = f"{model_hash}_{images_hash.hexdigest()}"
+
+# Try to load predictions from cache
+cache_file = DATA_DIR / f"predictions_cache_{cache_key}.pkl"
+if cache_file.exists():
+    import pickle
+    with open(cache_file, 'rb') as f:
+        predictions = pickle.load(f)
+        converted_predictions = convert_yolo_predictions(predictions)
+else:
+    # Generate predictions and cache them
+    predictions = generate_predictions(model_path, image_paths, MAX_FRAMES)
+    converted_predictions = convert_yolo_predictions(predictions)
+    with open(cache_file, 'wb') as f:
+        pickle.dump(predictions, f)
 
 # %%==================== APPLY KALMAN FILTER ====================%%
-kalman_predictions = filter_and_interpolate_predictions(predictions)
+# kalman_predictions = filter_and_interpolate_predictions(predictions)
 
 # %%==================== APPLY PARTICLE FILTER ====================%%
-from particle_filter import filter_and_interpolate_predictions
-particle_predictions = filter_and_interpolate_predictions(predictions)
+# from particle_filter import filter_and_interpolate_predictions
+# particle_predictions = filter_and_interpolate_predictions(predictions)
+
+# %%==================== APPLY KCF TRACKER ====================%%
+# from kfc_tracker import filter_and_interpolate_predictions as kcf_filter
+# kcf_predictions = kcf_filter(converted_predictions, image_paths)
+ 
+# %%==================== APPLY RANDOM TRACKER ====================%%
+from tracker import filter_and_interpolate_predictions as tracker_filter
+trakcer_predicitons = tracker_filter(converted_predictions, image_paths)
 
 # %%==================== VISUALIZE ====================%%
-visualizer = PredictionVisualizer(image_paths, predictions)
+# visualizer = PredictionVisualizer(image_paths, predictions)
 
 # %%==================== CREATE VIDEO ====================%%
-frames_to_video(image_paths, convert_yolo_predictions(predictions), video_output_path, 100, fps=30)
+frames_to_video(image_paths, converted_predictions, video_output_path, MAX_FRAMES, fps=FPS)
