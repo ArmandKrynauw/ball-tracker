@@ -24,11 +24,13 @@ logger = logging.getLogger(__name__)
 download_from_drive("1XGD6ZRUiFVuvpKsfOQLreA27lTRM3d2-",DATA_DIR, "images.zip")
 download_from_drive("1XGD6ZRUiFVuvpKsfOQLreA27lTRM3d2-",DATA_DIR, "annotations.zip")
 
-# download_from_drive('1XjdCJAxRXw7r2vkbGitc3zh1pxmSU9D_',DATA_DIR / "field_hockey","field_hockey.zip")
+# download_from_drive('1XjdCJAxRXw7r2vkbGitc3zh1pxmSU9D_',DATA_DIR,"field_hockey.zip")
 
 
 unzipData(DATA_DIR / "images","images.zip")
 unzipData(DATA_DIR / "annotations","annotations.zip")
+# unzipData(DATA_DIR / "field_hock","field_hockey.zip")
+
 # Amendments to dataset
 
 setup_dataset()

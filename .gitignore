@@ -20,6 +20,7 @@ data/*.pt
 data/field_hockey/videos
 data/field_hockey/frames
 data/field_hock
+data/backup
 *.json      
 # Files that might appear in the root of a volume
 .DocumentRevisions-V100

@@ -7,6 +7,7 @@ from typing import List
 import gdown
 import tqdm
 import yaml
+import subprocess
 
 DATA_DIR = Path("data")
 DATASET_DIR = DATA_DIR / "dataset"
@@ -141,6 +142,21 @@ def setup_dataset(output_data_dir: Path | None = None):
     test_labels_path = annotations_images_dir / "test" / "labels"
     for label in tqdm.tqdm(test_labels_path.glob("*"), desc="Copying test labels"):
         shutil.copy(label, TRAIN_LABELS_DIR / label.name)
+
+    source_path = 'data/field_hock/'  # Source directory to sync from
+    destination_path = 'data/dataset/'  # Destination directory to sync to
+
+    command = [
+        'rsync', '-av', source_path, destination_path
+    ]
+
+    try:
+        print(f"Syncing data from {source_path} to {destination_path}...")
+        subprocess.run(command, check=True)
+        return destination_path  # Adjust the return value if needed
+    except subprocess.CalledProcessError as e:
+        print("Sync Error", f"Failed to sync data: {str(e)}")
+        return None
     
 
 
