@@ -25,12 +25,16 @@ logging.basicConfig(
 )
 
 # Generates predictions for all frames and stores them in a dictionary.
-def generate_predictions(model_path, image_paths, max_frames):
+def generate_predictions(model_path, image_paths, max_frames = None):
     model = YOLO(model_path)
     predictions = {}
 
     # Initialize progress bar
-    for index, image_path in tqdm(enumerate(image_paths[:max_frames]), total=min(len(image_paths), max_frames), desc="Generating Predictions"):
+    cut_paths = image_paths
+    if max_frames is not None:
+        cut_paths = image_paths[:max_frames]
+
+    for index, image_path in tqdm(enumerate(cut_paths), total=len(cut_paths), desc="Generating Predictions"):
         results = model.predict(image_path, conf=0.2, max_det=1)[0]
         boxes = results.cpu().boxes
         if boxes:
@@ -95,7 +99,10 @@ def frames_to_video(frame_paths, predictions, output_path, max_frames, fps=25, c
 
     print("Exporting video:")
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        num_frames = min(len(frame_paths), max_frames)
+        num_frames = len(frame_paths)
+        if max_frames is not None:
+            num_frames = min(num_frames, max_frames)
+
         for i in range(0, num_frames, batch_size):
             batch_indices = range(i, min(i + batch_size, num_frames))
             print(f"Processing frames [{i} - {i + len(batch_indices) - 1}] of {num_frames}")
@@ -218,7 +225,7 @@ def highlight_bounding_box(image, bounding_box, draw_crosshairs=True, scale=1.25
 
     # Draw overlay
     overlay = cropped
-    color = Image.new("RGB", overlay.size, "magenta")
+    color = Image.new("RGB", overlay.size, "yellow")
     overlay.paste(color, mask=mask)
 
     nx1 = int( max(x1 - (x2-x1)*(scale-1), 0) )
@@ -226,7 +233,7 @@ def highlight_bounding_box(image, bounding_box, draw_crosshairs=True, scale=1.25
     nx2 = int( min(x2 + (x2-x1)*(scale-1), image.width) )
     ny2 = int( min(y2 + (y2-y1)*(scale-1), image.height) )
 
-    print(nx1, ny1, nx2, ny2)
+    # print(nx1, ny1, nx2, ny2)
 
     overlay = overlay.resize( (nx2-nx1, ny2-ny1) )
 
@@ -244,10 +251,10 @@ def highlight_bounding_box(image, bounding_box, draw_crosshairs=True, scale=1.25
             max(0, min(image.width,     (nx2 + padding))),
             max(0, min(image.height,    (ny2 + padding)))
         )
-        draw.line((bx1, by1, bx1 + (bx2 - bx1) / 2, by1), fill="yellow", width=2)
-        draw.line((bx1, by1, bx1, by1 + (by2 - by1) / 2), fill="yellow", width=2)
-        draw.line((bx2, by2, bx2, by2 - (by2 - by1) / 2), fill="yellow", width=2)
-        draw.line((bx2, by2, bx2 - (bx2 - bx1) / 2, by2), fill="yellow", width=2)
+        draw.line((bx1, by1, bx1 + (bx2 - bx1) / 2, by1), fill="red", width=2)
+        draw.line((bx1, by1, bx1, by1 + (by2 - by1) / 2), fill="red", width=2)
+        draw.line((bx2, by2, bx2, by2 - (by2 - by1) / 2), fill="red", width=2)
+        draw.line((bx2, by2, bx2 - (bx2 - bx1) / 2, by2), fill="red", width=2)
 
     return image
 
@@ -421,59 +428,30 @@ def filter_and_interpolate_predictions(predictions, max_gap=5, max_distance=50):
 
 
 # %%==================== GENERATE PREDICTIONS ====================%%
-model_path = DATA_DIR / "best.pt"
+model_path = DATA_DIR / "best_fh_2.pt"
+# model_path = DATA_DIR / "best_iceHockey.pt"
 # model_path = DATA_DIR / "best.pt"
+
 # images_dir = DATA_DIR / "dataset" / "train" / "images"
 # video_input_path = DATA_DIR / "field_hockey" / "videos" / "fh_04.mp4"
-video_input_path = DATA_DIR / "testing" / "UP" / "FH.mp4"
-video_output_path = DATA_DIR / "testing" / "UP" / "FH_tracked.mp4"
-images_dir = DATA_DIR / "testing" / "UP" / "images" / "FH"
+video_input_path = DATA_DIR / "testing" / "04" / "fh_04_737-945.mp4"
+video_output_path = DATA_DIR / "testing" / "04" / "fh_04_737-945_tracked.mp4"
+images_dir = DATA_DIR / "testing" / "04" / "images" / "737"
 
-MAX_FRAMES = 400
-FPS = 30
+MAX_FRAMES = None
+FPS = 25
 
 # Extract frames from video
 # video_to_frames(video_input_path, images_dir, start_frame=450, end_frame=720, fps=FPS)
-video_to_frames(video_input_path, images_dir, start_frame=0, end_frame=100, fps=FPS)
+video_to_frames(video_input_path, images_dir, start_frame=0, end_frame=MAX_FRAMES, fps=FPS)
 
 # Get list of image paths
 image_paths = sorted(glob.glob(os.path.join(images_dir, "*.jpg")))
 
-# # Calculate hash of model and images for caching
-# import hashlib
-# import pickle
-# def get_file_hash(filepath):
-#     hasher = hashlib.md5()
-#     with open(filepath, 'rb') as f:
-#         buf = f.read(65536)
-#         while len(buf) > 0:
-#             hasher.update(buf)
-#             buf = f.read(65536)
-#     return hasher.hexdigest()
-
-# model_hash = get_file_hash(model_path)
-# images_hash = hashlib.md5()
-# for img_path in image_paths[:MAX_FRAMES]:
-#     images_hash.update(get_file_hash(img_path).encode())
-# cache_key = f"{model_hash}_{images_hash.hexdigest()}"
-
-# # Try to load predictions from cache
-# cache_file = DATA_DIR / f"predictions_cache_{cache_key}.pkl"
-# if cache_file.exists():
-#     import pickle
-#     with open(cache_file, 'rb') as f:
-#         predictions = pickle.load(f)
-#         converted_predictions = convert_yolo_predictions(predictions)
-# else:
-#     # Generate predictions and cache them
-#     predictions = generate_predictions(model_path, image_paths, MAX_FRAMES)
-#     converted_predictions = convert_yolo_predictions(predictions)
-#     with open(cache_file, 'wb') as f:
-#         pickle.dump(predictions, f)
-
-# # Generate predictions at the beginning
+# Generate predictions at the beginning
 predictions = generate_predictions(model_path, image_paths, MAX_FRAMES)
 
+# frames_to_video(image_paths, predictions, video_output_path, MAX_FRAMES)
 # %%==================== APPLY KALMAN FILTER ====================%%
 # kalman_predictions = filter_and_interpolate_predictions(predictions)
 
@@ -504,4 +482,4 @@ predictions = generate_predictions(model_path, image_paths, MAX_FRAMES)
 # visualizer = PredictionVisualizer(image_paths, predictions)
 
 # %%==================== CREATE VIDEO ====================%%
-frames_to_video(image_paths, predictions, video_output_path, 100)
+frames_to_video(image_paths, predictions, video_output_path, MAX_FRAMES)
