@@ -3,26 +3,32 @@ from numpy.random import randn
 from scipy.spatial.distance import euclidean
 
 class ParticleFilter:
-    def __init__(self, n_particles=100, process_std=5.0, measurement_std=10.0):
+    def __init__(self, n_particles=200, process_std=3.0, measurement_std=5.0):
         """
         Initialize the particle filter.
-
+        
         Args:
-            n_particles (int): Number of particles to use
-            process_std (float): Standard deviation of process noise
-            measurement_std (float): Standard deviation of measurement noise
+            n_particles (int): Number of particles
+            process_std (float): Process noise standard deviation
+            measurement_std (float): Measurement noise standard deviation
         """
         self.n_particles = n_particles
         self.process_std = process_std
         self.measurement_std = measurement_std
         self.particles = None
+        self.velocities = None
         self.weights = np.ones(n_particles) / n_particles
         self.initialized = False
+        self.prev_position = None
+        self.dt = 1.0  # time step
+        self.velocity_decay = 0.95  # velocity decay factor
 
     def initialize(self, initial_position):
-        """Initialize particles around first detection."""
+        """Initialize particle filter with first detection."""
         self.particles = np.repeat(initial_position.reshape(1, -1), self.n_particles, axis=0)
-        self.particles += randn(self.n_particles, 2) * self.measurement_std
+        self.velocities = np.zeros((self.n_particles, 2))
+        self.particles += randn(self.n_particles, 2) * self.measurement_std * 0.1
+        self.prev_position = initial_position
         self.initialized = True
 
     def predict(self):
@@ -30,10 +36,17 @@ class ParticleFilter:
         if not self.initialized:
             return None
 
-        # Add random noise to particles (process noise)
+        # Update positions based on velocity
+        self.particles += self.velocities * self.dt
+        
+        # Add random noise to both position and velocity
         self.particles += randn(*self.particles.shape) * self.process_std
-
-        # Return weighted mean of particles as prediction
+        self.velocities += randn(*self.velocities.shape) * self.process_std * 0.5
+        
+        # Apply velocity decay (drag)
+        self.velocities *= self.velocity_decay
+        
+        # Return weighted mean of particles
         return np.average(self.particles, weights=self.weights, axis=0)
 
     def update(self, measurement):
@@ -45,14 +58,33 @@ class ParticleFilter:
             self.initialize(measurement)
             return measurement
 
-        # Calculate weights based on measurement likelihood
-        dist = np.linalg.norm(self.particles - measurement, axis=1)
-        self.weights *= np.exp(-0.5 * (dist ** 2) / (self.measurement_std ** 2))
-        self.weights += 1.e-300  # Avoid numerical underflow
-        self.weights /= sum(self.weights)  # Normalize weights
+        # Predict step
+        predicted_pos = self.predict()
 
-        # Resample particles if effective sample size is too low
-        if self._neff() < self.n_particles / 2:
+        if predicted_pos is None:
+            return None
+
+        # Calculate distances for all particles
+        dist = np.linalg.norm(self.particles - measurement, axis=1)
+        
+        # Exponential weight update with adaptive scaling
+        max_dist = max(dist.max(), 1e-6)
+        scaled_dist = dist / max_dist
+        self.weights *= np.exp(-0.5 * (scaled_dist ** 2))
+        
+        # Avoid numerical underflow
+        self.weights += 1e-300
+        self.weights /= self.weights.sum()
+
+        # Update velocities based on measurement
+        measured_velocity = (measurement - self.prev_position) / self.dt
+        self.velocities = 0.7 * self.velocities + 0.3 * measured_velocity
+        
+        # Store current position for next velocity calculation
+        self.prev_position = measurement.copy()
+
+        # Resample if effective sample size is too low
+        if self._neff() < self.n_particles / 1.5:
             self._resample()
 
         # Return weighted mean of particles
@@ -60,77 +92,93 @@ class ParticleFilter:
 
     def _neff(self):
         """Calculate effective sample size."""
-        return 1. / np.sum(self.weights ** 2)
+        return 1.0 / np.sum(np.square(self.weights))
 
     def _resample(self):
-        """Resample particles based on their weights."""
+        """Systematic resampling of particles."""
+        # Systematic resampling
+        positions = (np.random.random() + np.arange(self.n_particles)) / self.n_particles
         cumsum = np.cumsum(self.weights)
-        cumsum[-1] = 1.
-        indices = np.searchsorted(cumsum, np.random.random(self.n_particles))
+        cumsum[-1] = 1.0  # Handle numerical errors
+        
+        indices = np.searchsorted(cumsum, positions)
+        
+        # Copy with noise to avoid particle depletion
         self.particles = self.particles[indices]
+        self.velocities = self.velocities[indices]
+        
+        # Add small random noise to resampled particles
+        self.particles += randn(*self.particles.shape) * self.measurement_std * 0.1
+        self.velocities += randn(*self.velocities.shape) * self.process_std * 0.1
+        
+        # Reset weights
         self.weights = np.ones(self.n_particles) / self.n_particles
 
 def filter_and_interpolate_predictions(predictions, max_gap=5, max_distance=50):
     """
-    Filters and interpolates the predictions using a particle filter to
-    smooth trajectories and fill in missing detections.
-
+    Filters and interpolates predictions using particle filter.
+    
     Args:
         predictions (dict): Original predictions with frame indices as keys
-        max_gap (int): Maximum gap of frames to interpolate between
-        max_distance (float): Maximum distance to consider a detection valid
-
+        max_gap (int): Maximum frames gap to interpolate
+        max_distance (float): Maximum distance for valid detection
+    
     Returns:
-        dict: New set of predictions with filtered and interpolated positions
+        dict: Filtered and interpolated predictions
     """
-    pf = ParticleFilter(n_particles=100, process_std=5.0, measurement_std=10.0)
+    pf = ParticleFilter(n_particles=200, process_std=3.0, measurement_std=5.0)
     filtered_predictions = {}
     previous_position = None
+    min_box_size = 15
+    max_box_size = 25
 
     for frame_index in sorted(predictions.keys()):
-        # Check if a ball was detected in this frame
-        if predictions[frame_index].boxes:
-            box = predictions[frame_index].boxes[0].cpu()
-            x1, y1, x2, y2 = box.xyxy[0]
-            ball_position = np.array([(x1 + x2) / 2, (y1 + y2) / 2])  # Center of bounding box
+        # Get detection for current frame
+        current_pred = predictions[frame_index]
+        
+        if current_pred['boxes']:
+            # Extract center position from detection
+            box = current_pred['boxes'][0]['xyxy']
+            ball_position = np.array([(box[0] + box[2]) / 2, (box[1] + box[3]) / 2])
 
-            # Discard detections too far from the previous position
-            if previous_position is not None and euclidean(ball_position, previous_position) > max_distance:
-                ball_position = None
-            else:
-                # Update particle filter with the detected position
+            # Validate detection using distance threshold
+            if previous_position is not None:
+                if euclidean(ball_position, previous_position) > max_distance:
+                    ball_position = None
+            
+            if ball_position is not None:
+                # Update filter with valid detection
                 filtered_position = pf.update(ball_position)
                 previous_position = filtered_position
         else:
+            # No detection in this frame
             ball_position = None
+            filtered_position = pf.predict() if pf.initialized else None
 
-        # If no ball detected, use prediction from particle filter
-        if ball_position is None:
-            if previous_position is not None:
-                # Predict next position using particle filter
-                filtered_position = pf.predict()
-                if filtered_position is None:
-                    filtered_predictions[frame_index] = {'boxes': []}
-                    continue
+        # Store filtered prediction
+        if filtered_position is not None:
+            # Calculate adaptive box size based on velocity
+            if pf.velocities is not None:
+                velocity_magnitude = np.linalg.norm(pf.velocities.mean(axis=0))
+                box_size = max(min_box_size, 
+                             min(max_box_size, min_box_size + velocity_magnitude * 0.5))
             else:
-                # Skip if there's no prior position for initialization
-                filtered_predictions[frame_index] = {'boxes': []}
-                continue
+                box_size = min_box_size
 
-        # Convert position back to bbox format
-        box_size = 20  # Adjust this value based on your typical ball size
-        filtered_predictions[frame_index] = {
-            'boxes': [{
-                'xyxy': np.array([
-                    filtered_position[0] - box_size/2,
-                    filtered_position[1] - box_size/2,
-                    filtered_position[0] + box_size/2,
-                    filtered_position[1] + box_size/2
-                ])
-            }]
-        }
+            filtered_predictions[frame_index] = {
+                'boxes': [{
+                    'xyxy': np.array([
+                        filtered_position[0] - box_size/2,
+                        filtered_position[1] - box_size/2,
+                        filtered_position[0] + box_size/2,
+                        filtered_position[1] + box_size/2
+                    ])
+                }]
+            }
+        else:
+            filtered_predictions[frame_index] = {'boxes': []}
 
-    # Fill in gaps using linear interpolation
+    # Fill gaps using linear interpolation
     frame_indices = sorted(filtered_predictions.keys())
     for i in range(len(frame_indices) - 1):
         start_frame = frame_indices[i]
@@ -138,11 +186,12 @@ def filter_and_interpolate_predictions(predictions, max_gap=5, max_distance=50):
         gap = end_frame - start_frame
 
         if gap > 1 and gap <= max_gap:
-            if (len(filtered_predictions[start_frame]['boxes']) > 0 and 
-                len(filtered_predictions[end_frame]['boxes']) > 0):
+            if (filtered_predictions[start_frame]['boxes'] and 
+                filtered_predictions[end_frame]['boxes']):
                 # Get start and end positions
                 start_box = filtered_predictions[start_frame]['boxes'][0]['xyxy']
                 end_box = filtered_predictions[end_frame]['boxes'][0]['xyxy']
+                
                 start_pos = np.array([(start_box[0] + start_box[2])/2, 
                                     (start_box[1] + start_box[3])/2])
                 end_pos = np.array([(end_box[0] + end_box[2])/2, 
@@ -152,6 +201,9 @@ def filter_and_interpolate_predictions(predictions, max_gap=5, max_distance=50):
                 for j in range(1, gap):
                     t = j / gap
                     interp_pos = start_pos + (end_pos - start_pos) * t
+                    
+                    # Use average box size for interpolated frames
+                    box_size = (min_box_size + max_box_size) / 2
                     filtered_predictions[start_frame + j] = {
                         'boxes': [{
                             'xyxy': np.array([
