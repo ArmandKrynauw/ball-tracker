@@ -34,9 +34,11 @@ def frames_to_video(frame_paths, model_path, output_path, max_frames, fps=25, co
 
         # Apply highlight to each bounding box in the frame
         if boxes is not None:
+            i = 0
             for box in boxes:
                 x1, y1, x2, y2 = box.xyxy[0]
-                image = highlight_bounding_box(image, (x1, y1, x2, y2), contrast_factor)
+                image = highlight_bounding_box(image, (x1, y1, x2, y2), i == 0, contrast_factor)
+                i += 1
 
         # Convert the modified PIL image to a format compatible with VideoWriter
         frame = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
@@ -61,12 +63,11 @@ def frames_to_video(frame_paths, model_path, output_path, max_frames, fps=25, co
     print(f"Video saved to {output_path}")
 
 
-def highlight_bounding_box(image, bounding_box, contrast_factor=1.5):
+def highlight_bounding_box(image, bounding_box, draw_crosshairs = True, contrast_factor=1.5):
     """Increases the contrast of pixels within a bounding box to better highlight the object."""
     # image.width
     # image.height
     x1, y1, x2, y2 = map(int, bounding_box)
-    print("COORDS: ", x1, y1, x2, y2)
     cropped = image.crop((x1, y1, x2, y2))
 
     # Create circular mask
@@ -81,6 +82,22 @@ def highlight_bounding_box(image, bounding_box, contrast_factor=1.5):
 
     # Paste the enhanced crop back into the image
     image.paste(cropped, (x1, y1))
+
+    # Draw crosshairs
+    if draw_crosshairs:
+        padding = 10
+        draw = ImageDraw.Draw(image)
+        (bx1, by1, bx2, by2) = (
+            max(0, min(image.width,     x1 - padding)),
+            max(0, min(image.height,    y1 - padding)),
+            max(0, min(image.width,     x2 + padding)),
+            max(0, min(image.height,    y2 + padding))
+        )
+        draw.line((bx1, by1, bx1 + (bx2-bx1)/2, by1), fill="red", width=2)
+        draw.line((bx1, by1, bx1, by1 + (by2-by1)/2), fill="red", width=2)
+        draw.line((bx2, by2, bx2, by2 - (by2-by1)/2), fill="red", width=2)
+        draw.line((bx2, by2, bx2 - (bx2-bx1)/2, by2), fill="red", width=2)
+
     return image
 
 
@@ -194,7 +211,7 @@ def main():
     images_dir = DATA_DIR / "dataset" / "train" / "images"
     video_output_path = DATA_DIR / "tracked_hockey_ball.mp4"
 
-    VISUALIZE = False
+    VISUALIZE = False # Toggle show visualizer / export video
 
     # Initialize the visualizer and render images with highlights
     visualizer = PredictionVisualizer(model_path, images_dir, VISUALIZE)
