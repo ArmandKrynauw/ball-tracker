@@ -5,8 +5,10 @@ import shutil
 from pathlib import Path
 import random
 import yaml
+import os
 
 FH_DATASET_DIR = DATA_DIR / "fh_dataset"
+CWD = Path(os.getcwd())
 
 def prepare_training_data():
     """Prepare and split the dataset for training"""
@@ -15,12 +17,13 @@ def prepare_training_data():
     train_labels = FH_DATASET_DIR / 'train' / 'labels'
     val_images = FH_DATASET_DIR / 'val' / 'images'
     val_labels = FH_DATASET_DIR / 'val' / 'labels'
+    dataset_dir = DATA_DIR / 'field_hockey_yolo'
     
     for dir in [train_images, train_labels, val_images, val_labels]:
         dir.mkdir(parents=True, exist_ok=True)
     
     # Get all image files
-    source_images = (DATA_DIR / "field_hockey_yolo" / "images").glob("*.jpg")
+    source_images = (dataset_dir / "images").glob("*.jpg")
     image_files = sorted(list(source_images))
     
     # Determine split (80% train, 20% val)
@@ -32,7 +35,7 @@ def prepare_training_data():
     # Split and copy files
     for idx, img_path in enumerate(image_files):
         # Get corresponding label path
-        label_path = DATA_DIR / "field_hockey_yolo" / "labels" / f"{img_path.stem}.txt"
+        label_path = dataset_dir / "labels" / f"{img_path.stem}.txt"
         
         if idx in val_indices:
             # Copy to validation set
@@ -69,7 +72,7 @@ def prepare_training_data():
 
 def main():
     # Download and unzip data
-    download_from_drive("11471SWR9hSO9Qe-gffQiFQytQFS2vn_E", "fh_data.zip")
+    download_from_drive("1XjdCJAxRXw7r2vkbGitc3zh1pxmSU9D_", "fh_data.zip")
     shutil.unpack_archive(DATA_DIR / "fh_data.zip", DATA_DIR)
 
     # Prepare dataset
@@ -78,7 +81,7 @@ def main():
     # Initialize model
     model = YOLO(DATA_DIR / "yolov8s.pt")
 
-    # Determine device
+    # # Determine device
     device = torch.device(
         0
         if torch.cuda.is_available()
@@ -87,13 +90,14 @@ def main():
         else "cpu"
     )
     
-    # Train model
+    # # Train model
     model.train(
         data=data_path,
-        epochs=20, 
+        epochs=30, 
         imgsz=1920,
-        batch=8,
+        batch=16,
         device=device,
+        project=CWD.absolute()
         # cache=True,
         # augment=True,
         # degrees=180,
