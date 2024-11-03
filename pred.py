@@ -13,7 +13,7 @@ def generate_timeline():
     vy = np.random.uniform(-20, 20)  # Initial velocity in y
     dt = 1  # Time step for simulation
     drag = 0.95  # Drag factor
-    gravity = randrange(0, 1000)/100 # Gravity
+    gravity = randrange(-100, 1000)/100 # Gravity
 
     # Initialize state
     timeline = []
@@ -55,18 +55,26 @@ import torch.optim as optim
 class PositionPredictor(nn.Module):
     def __init__(self):
         super(PositionPredictor, self).__init__()
-        self.fc1 = nn.Linear(3 * NUM_POINTS + 1, 64)  # 3 coordinates for each point + tPred
-        self.fc2 = nn.Linear(64, 64)
-        self.fc2 = nn.Linear(64, 64)
-        self.fc2 = nn.Linear(64, 64)
-        self.fc2 = nn.Linear(64, 64)
-        self.fc2 = nn.Linear(64, 64)
-        self.fc3 = nn.Linear(64, 2)  # Output (xPred, yPred)
+        self.fc1 = nn.Linear(3 * NUM_POINTS + 1, 128)  # 3 coordinates for each point + tPred
+        self.fc2 = nn.Linear(128, 128)
+        self.fc3 = nn.Linear(128, 128)
+        self.fc4 = nn.Linear(128, 128)
+        self.fc5 = nn.Linear(128, 64)
+        self.fc6 = nn.Linear(64, 64)
+        self.fc7 = nn.Linear(64, 64)
+        self.fc8 = nn.Linear(64, 64)
+        self.fc9 = nn.Linear(64, 2)  # Output (xPred, yPred)
 
     def forward(self, x):
         x = torch.relu(self.fc1(x))
         x = torch.relu(self.fc2(x))
-        x = self.fc3(x)
+        x = torch.relu(self.fc3(x))
+        x = torch.relu(self.fc4(x))
+        x = torch.relu(self.fc5(x))
+        x = torch.relu(self.fc6(x))
+        x = torch.relu(self.fc7(x))
+        x = torch.relu(self.fc8(x))
+        x = self.fc9(x)
         return x
 
 
@@ -94,15 +102,18 @@ def create_dataset(num_samples):
 
 # %%==================== TRAIN ====================%%
 import os
+from tqdm import tqdm
+# Check if CUDA is available
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 REUSE_MODEL = True
 model_save_file = 'position_predictor.pth'
-model = PositionPredictor()
+model = PositionPredictor().to(device)  # Move model to GPU
 
 # Load previous model if exists
 if REUSE_MODEL and os.path.exists(model_save_file):
     print(f"Reusing saved model: {model_save_file}")
-    model.load_state_dict(torch.load(model_save_file))
+    model.load_state_dict(torch.load(model_save_file, map_location=device))
 
 else:
     # Create model, define loss function and optimizer
@@ -112,13 +123,14 @@ else:
 
     # Training loop
     num_epochs = 50000
-    for epoch in range(num_epochs):
+    losses = []
+    for epoch in tqdm(range(num_epochs), desc="Training"):
         # Training parameters
         X, y = create_dataset(200)
 
-        # Convert to PyTorch tensors
-        X_tensor = torch.tensor(X, dtype=torch.float32)
-        y_tensor = torch.tensor(y, dtype=torch.float32)
+        # Convert to PyTorch tensors and move them to GPU
+        X_tensor = torch.tensor(X, dtype=torch.float32).to(device)
+        y_tensor = torch.tensor(y, dtype=torch.float32).to(device)
 
         # Train
         model.train()
@@ -128,11 +140,12 @@ else:
         loss.backward()
         optimizer.step()
 
-        if epoch > num_epochs - 50:
-            print(f'Target: {y[0]}\tPrediction: {outputs[0].detach().numpy()}')
+        # if epoch > num_epochs - 50:
+        #     print(f'Target: {y[0]}\tPrediction: {outputs[0].detach().cpu().numpy()}')
 
         if (epoch + 1) % 50 == 0:
-            print(f'[{epoch + 1}/{num_epochs}]\tLoss: {loss.item():.4f}')
+            losses.append(loss.item())
+        #     print(f'[{epoch + 1}/{num_epochs}]\tLoss: {loss.item():.4f}')
 
     print("Training complete.")
 
@@ -147,13 +160,6 @@ def predict_and_plot(model):
     # Generate a random timeline using the generate_timeline function
     sampled_points, timeline = generate_timeline()
 
-    # Training parameters
-    # X, y = create_dataset(1)
-
-    # Convert to PyTorch tensors
-    # X_tensor = torch.tensor(X, dtype=torch.float32)
-    # y_tensor = torch.tensor(y, dtype=torch.float32)
-    
     # Convert to np arrays for plotting
     sampled_points_np = np.array(sampled_points)
     timeline_np = np.array(timeline)
@@ -163,6 +169,10 @@ def predict_and_plot(model):
     plt.plot(timeline_np[:, 0], timeline_np[:, 1], color='blue', label='Object Path')
     # plt.scatter(timeline_np[:, 0], timeline_np[:, 1], color='blue', s=10)
     plt.scatter(sampled_points_np[:, 0], sampled_points_np[:, 1], color='blue', s=20)
+
+    # scatter with timestamp labels
+    for i, txt in enumerate(sampled_points_np[:, 2]):
+        plt.annotate(str(txt)[:-2], (sampled_points_np[i, 0] + 10, sampled_points_np[i, 1]), color='blue')
 
     points = np.array(sampled_points[:-1]).flatten()
 
@@ -180,16 +190,17 @@ def predict_and_plot(model):
         t_pred = randrange(TIME_RANGE[0], TIME_RANGE[1])
         # Flatten the sampled points and add the target timestamp
         features = np.concatenate([points, [t_pred]])
-        features_tensor = torch.tensor(features, dtype=torch.float32).unsqueeze(0)
+        features_tensor = torch.tensor(features, dtype=torch.float32).to(device).unsqueeze(0)
 
         # Predict the position
         with torch.no_grad():
-            prediction = model(features_tensor).numpy().squeeze()
+            prediction = model(features_tensor).cpu().numpy().squeeze()
 
         print(f"{t_pred}:\t{prediction}")
 
         # Plot the predicted point in green
         plt.scatter(prediction[0], prediction[1], color='green', marker='o', s=50)
+        plt.annotate(str(t_pred), (prediction[0] + 10, prediction[1]), color='green')
 
     # Customize the plot
     plt.xlabel('X Position')
