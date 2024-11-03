@@ -14,7 +14,7 @@ from utils import DATA_DIR, TEST_IMAGES_DIR, TRAIN_IMAGES_DIR
 import concurrent.futures
 from itertools import islice
 
-def frames_to_video(frame_paths, model_path, output_path, max_frames, fps=25, contrast_factor=1.5, batch_size=10):
+def frames_to_video(frame_paths, model_path, output_path, max_frames, fps=25, contrast_factor=1.5, batch_size=20):
     """Converts a sequence of image frames to a video, applying contrast enhancement within bounding boxes in parallel batches."""
 
     # Initialize video writer based on the first frame's dimensions
@@ -73,10 +73,10 @@ def highlight_bounding_box(image, bounding_box, draw_crosshairs = True, contrast
     # Create circular mask
     mask = Image.new("L", cropped.size, 0)
     draw = ImageDraw.Draw(mask)
-    draw.ellipse((0, 0, x2 - x1, y2 - y1), fill=127)
+    draw.ellipse((0, 0, x2 - x1, y2 - y1), fill=200)
 
     # Overlay mask on cropped image
-    yellow = Image.new("RGB", cropped.size, "yellow")
+    yellow = Image.new("RGB", cropped.size, "magenta")
     # enhanced_crop = ImageEnhance.Contrast(cropped).enhance(contrast_factor)
     cropped.paste(yellow, mask=mask)
 
@@ -93,10 +93,10 @@ def highlight_bounding_box(image, bounding_box, draw_crosshairs = True, contrast
             max(0, min(image.width,     x2 + padding)),
             max(0, min(image.height,    y2 + padding))
         )
-        draw.line((bx1, by1, bx1 + (bx2-bx1)/2, by1), fill="red", width=2)
-        draw.line((bx1, by1, bx1, by1 + (by2-by1)/2), fill="red", width=2)
-        draw.line((bx2, by2, bx2, by2 - (by2-by1)/2), fill="red", width=2)
-        draw.line((bx2, by2, bx2 - (bx2-bx1)/2, by2), fill="red", width=2)
+        draw.line((bx1, by1, bx1 + (bx2-bx1)/2, by1), fill="yellow", width=2)
+        draw.line((bx1, by1, bx1, by1 + (by2-by1)/2), fill="yellow", width=2)
+        draw.line((bx2, by2, bx2, by2 - (by2-by1)/2), fill="yellow", width=2)
+        draw.line((bx2, by2, bx2 - (bx2-bx1)/2, by2), fill="yellow", width=2)
 
     return image
 
