@@ -95,7 +95,7 @@ def create_dataset(num_samples):
 # %%==================== TRAIN ====================%%
 import os
 
-REUSE_MODEL = False
+REUSE_MODEL = True
 model_save_file = 'position_predictor.pth'
 model = PositionPredictor()
 
